@@ -11,7 +11,8 @@ Post the snippet, not the mp3. Waxframe turns an audio snippet into a clean vide
 ## What it does
 
 - **Drop an mp3** (or wav, m4a). Title, artist and cover art are read from the file's ID3 tags.
-- **Six looks**: Record (spinning vinyl), Sleeve (full-bleed cover), Type (giant word-by-word lyrics), Waveform, Poster, VHS.
+- **Six looks that react to the music**: Punch (cover hits on every kick), Spin (a record cut by the frame), Spectrum (live bars), Scope (the live waveform), Type (giant word-by-word lyrics), Poster (print layout).
+- **Beat detection**: kicks are picked out of the sub-140 Hz band in real time, so the visuals land on the beat in the export too.
 - **Any frame**: 9:16 story, 4:5 feed, 1:1, 16:9, or a custom ratio. Text stays clear of the platform's buttons and captions; toggle *Safe zones* to see them.
 - **Lyrics**: paste them and tap along while the track plays (space bar works). Fade, pop or karaoke. Import and save `.lrc` files.
 - **Trim** the snippet on the waveform, or jump to 15/30/60 seconds.

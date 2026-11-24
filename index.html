@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Waxframe</title>
 <meta name="description" content="Turn an mp3 snippet into a clean, lyric-synced video for Instagram stories, Reels and TikTok. Runs in your browser.">
-<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="icon" href="assets/logo.svg?v=4" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=VT323&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=8">
 <script>try{const t=localStorage.getItem('wf-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
 <div class="drop-overlay" id="dropOverlay" aria-hidden="true"><p>Drop it</p></div>
 
 <header class="nav">
-  <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="26" height="26"><span>Waxframe</span></a>
+  <a class="brand" href="#top"><img src="assets/logo.svg?v=4" alt="" width="26" height="26"><span>Waxframe</span></a>
   <nav>
     <a href="#looks">Looks</a>
     <a href="#studio">Studio</a>
@@ -124,7 +124,7 @@
       <div class="stage-col" id="stageCol">
         <div class="stage-wrap" id="stageWrap">
           <canvas id="stage" width="1080" height="1920"></canvas>
-          <div class="guides" id="guides" aria-hidden="true"><div class="g-top"></div><div class="g-right"></div><div class="g-bot"></div></div>
+          <div class="guides" id="guides" aria-hidden="true"><div class="g-top"><span>profile + sound</span></div><div class="g-right"><span>like, comment, share</span></div><div class="g-bot"><span>caption + buttons</span></div><p class="g-note">Preview only. Not in the export.</p></div>
           <div class="demo-badge" id="demoBadge">Demo · drop an mp3 to make it yours</div>
         </div>
 
@@ -136,7 +136,7 @@
           <div class="times"><span id="timeNow">0:00</span> / <span id="timeDur">0:15</span></div>
           <div class="t-spacer"></div>
           <button class="toggle" id="loopBtn" type="button" aria-pressed="true">Loop</button>
-          <button class="toggle" id="guidesBtn" type="button" aria-pressed="true">Safe zones</button>
+          <button class="toggle" id="guidesBtn" type="button" aria-pressed="false">Safe zones</button>
         </div>
 
         <div class="trim">
@@ -219,6 +219,6 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

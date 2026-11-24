@@ -1,11 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Waxframe">
-  <rect width="512" height="512" rx="112" fill="#16151A"/>
-  <!-- story frame -->
-  <rect x="148" y="72" width="216" height="368" rx="36" fill="#F1EEE8"/>
-  <!-- record, slipping out of the frame -->
-  <circle cx="256" cy="256" r="150" fill="#16151A"/>
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#F1EEE8" stroke-opacity=".14" stroke-width="6"/>
-  <circle cx="256" cy="256" r="112" fill="none" stroke="#F1EEE8" stroke-opacity=".1" stroke-width="6"/>
-  <circle cx="256" cy="256" r="56" fill="#FF4D2E"/>
-  <circle cx="256" cy="256" r="12" fill="#16151A"/>
+  <rect width="512" height="512" rx="116" fill="#16151A"/>
+  <circle cx="256" cy="256" r="186" fill="#F1EEE8"/>
+  <circle cx="256" cy="256" r="152" fill="none" stroke="#16151A" stroke-opacity=".14" stroke-width="8"/>
+  <rect x="200" y="156" width="112" height="200" rx="22" fill="#16151A"/>
+  <circle cx="256" cy="256" r="22" fill="#FF4D2E"/>
 </svg>

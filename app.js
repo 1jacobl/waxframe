@@ -287,7 +287,8 @@ function bigWords(S, A, ink, soft) {
   const nW = lines.reduce((a, l) => a + l.length, 0); const step = Math.min(0.2, (len * 0.55) / Math.max(1, nW));
   const outA = isTitle ? 1 : clamp((c.end + 0.3 - S.t) / 0.3, 0, 1) * (c.next && c.next.t <= c.end + 0.01 ? clamp((c.next.t - S.t) / 0.15, 0, 1) : 1);
   const rev = clamp(age / Math.max(0.4, len * 0.85), 0, 1) * nW; const st = S.lyricStyle;
-  ctx.save(); ctx.font = font(800, size); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.save(); const kz = 1 + 0.035 * (S.kick || 0); const pcx = A.x + A.w / 2, pcy = y0 - size * 0.8 + tot / 2; ctx.translate(pcx, pcy); ctx.scale(kz, kz); ctx.translate(-pcx, -pcy);
+  ctx.font = font(800, size); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   if ('letterSpacing' in ctx) ctx.letterSpacing = (-0.03 * size).toFixed(1) + 'px';
   const sp = ctx.measureText(' ').width; let wi = 0;
   lines.forEach((ws, li) => {
@@ -312,106 +313,132 @@ function bigWords(S, A, ink, soft) {
   ctx.restore();
 }
 
+/* ---- shared pieces for the reactive looks ---- */
+function frameBox(S) {
+  const { W, H } = S; const tall = H / W > 1.5; const m = W * 0.08;
+  return { m, tall, top: tall ? H * 0.1 : H * 0.08, right: tall ? W * 0.13 : m, bottom: tall ? H * 0.8 : H - m };
+}
+function band(S, a, b) { let s = 0; for (let i = a; i < b; i++) s += S.levels[i] || 0; return s / Math.max(1, b - a); }
+function head(S, x, y, w, ink, sub) {
+  const { ctx, u } = S; const hs = 84 * u; coverSq(S, x, y, hs, 0, true);
+  ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = ink; const tw = w - hs - 24 * u;
+  ctx.font = font(700, 34 * u); ctx.fillText(ellip(ctx, S.title, tw), x + hs + 24 * u, y + hs * 0.46);
+  ctx.font = font(500, 28 * u); ctx.fillStyle = sub; ctx.fillText(ellip(ctx, S.artist, tw), x + hs + 24 * u, y + hs * 0.46 + 38 * u);
+  ctx.restore(); return y + hs;
+}
+function line(S, x, y, w, ink, track) {
+  const { ctx, u } = S; ctx.fillStyle = track; ctx.fillRect(x, y, w, 4 * u); ctx.fillStyle = ink; ctx.fillRect(x, y, w * S.p, 4 * u);
+}
+function squareCrop(img) { const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, s = Math.min(iw, ih); return { sx: (iw - s) / 2, sy: (ih - s) / 2, s }; }
+
 const STYLES = {
-  record: {
-    name: 'Record', blurb: 'spinning vinyl',
+  punch: {
+    name: 'Punch', blurb: 'hits on the kick',
     draw(S) {
-      const { ctx, u } = S; const TAU = Math.PI * 2;
-      flat(S, mix(S.color, INK, .8)); grain(S, .05);
-      const L = heroLayout(S); const r = L.s / 2, cx = L.cx, cy = L.cy;
-      ctx.save(); ctx.translate(cx, cy); ctx.rotate(S.t * 0.55 * TAU);
-      ctx.fillStyle = '#0b0a0d'; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
-      ctx.lineWidth = Math.max(1, 1.3 * u);
-      for (let i = 0; i < 34; i++) { const rad = r * 0.4 + r * 0.56 * (i / 33); ctx.strokeStyle = `rgba(241,238,232,${i % 4 === 0 ? 0.07 : 0.03})`; ctx.beginPath(); ctx.arc(0, 0, rad, 0, TAU); ctx.stroke(); }
-      const lr = r * 0.36;
-      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, lr, 0, TAU); ctx.clip(); drawCover(ctx, S.cover, -lr, -lr, lr * 2, lr * 2); ctx.restore();
-      ctx.fillStyle = '#0b0a0d'; ctx.beginPath(); ctx.arc(0, 0, r * 0.028, 0, TAU); ctx.fill();
-      ctx.restore();
-      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.clip(); ctx.globalCompositeOperation = 'screen';
-      const sh = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-      sh.addColorStop(0.3, 'rgba(255,255,255,0)'); sh.addColorStop(0.43, 'rgba(255,255,255,.08)'); sh.addColorStop(0.52, 'rgba(255,255,255,0)');
-      ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, r * 2, r * 2); ctx.restore();
-      tonearm(S, cx, cy, r);
-      drawMeta(S, L.text, { color: BONE, sub: BONE_SUB, fill: S.accent, track: 'rgba(241,238,232,.18)', timeColor: BONE_SUB, ph: 5 });
-      drawLyrics(S, { ...L.lyric, size: 58 * u, color: BONE, nextColor: BONE_SUB });
+      const { ctx, W, H, u } = S; flat(S, '#000'); const k = S.kick || 0;
+      const z = 1.08 + 0.06 * k + 0.02 * Math.sin(S.t * 0.4);
+      ctx.save(); ctx.translate(W / 2, H / 2); drawCover(ctx, S.cover, -W * z / 2, -H * z / 2, W * z, H * z); ctx.restore();
+      ctx.fillStyle = `rgba(10,9,12,${(S.plain ? 0.3 : 0.64) - 0.18 * k})`; ctx.fillRect(0, 0, W, H);
+      const B = frameBox(S), w = W - B.m - B.right;
+      const hb = head(S, B.m, B.top, w, BONE, BONE_SUB);
+      bigWords(S, { x: B.m, y: hb + 50 * u, w, h: B.bottom - hb - 100 * u }, BONE, 'rgba(241,238,232,.32)');
+      if (S.showProgress) line(S, B.m, B.bottom, w, BONE, 'rgba(241,238,232,.22)');
     }
   },
 
-  sleeve: {
-    name: 'Sleeve', blurb: 'full-bleed cover',
+  spectrum: {
+    name: 'Spectrum', blurb: 'live bars',
     draw(S) {
-      const { ctx, W, H, u } = S; flat(S, mix(S.color, INK, .84));
-      const push = 1 + 0.05 * S.p; const m = W * 0.08;
-      const pic = (x, y, w, h) => { ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); drawCover(ctx, S.cover, x - w * (push - 1) / 2, y - h * (push - 1) / 2, w * push, h * push); ctx.restore(); };
-      const meta = (x, y, w, ts) => {
-        ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = BONE;
-        if ('letterSpacing' in ctx) ctx.letterSpacing = (-0.03 * ts * u).toFixed(1) + 'px';
-        const s = fitSize(ctx, S.title, 800, ts * u, w); ctx.fillText(S.title, x, y + s * 0.82);
-        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
-        ctx.font = font(500, 36 * u); ctx.fillStyle = BONE_SUB; ctx.fillText(ellip(ctx, S.artist, w), x, y + s * 0.82 + 54 * u);
-        ctx.restore(); return y + s * 0.82 + 54 * u;
-      };
-      if (H / W >= 1.2) {
-        const ch = Math.min(W, H * 0.52); pic(0, 0, W, ch);
-        const tw = W - 2 * m - (H / W > 1.5 ? W * 0.04 : 0);
-        let y = meta(m, ch + 60 * u, tw, 92) + 46 * u;
-        if (S.showProgress) { thinProgress(S, m, y, tw, S.accent, 'rgba(241,238,232,.16)', BONE_SUB); y += 92 * u; }
-        drawLyrics(S, { x: m, y, w: tw, align: 'left', size: 60 * u, color: BONE, nextColor: BONE_SUB });
-      } else {
-        const cs = Math.min(H, W * 0.5); pic(0, 0, cs, H);
-        const tx = cs + m * 0.9, tw = W - tx - m;
-        let y = meta(tx, H * 0.16, tw, 86) + 44 * u;
-        if (S.showProgress) { thinProgress(S, tx, y, tw, S.accent, 'rgba(241,238,232,.16)', BONE_SUB); y += 92 * u; }
-        drawLyrics(S, { x: tx, y, w: tw, align: 'left', size: 54 * u, color: BONE, nextColor: BONE_SUB });
+      const { ctx, W, H, u } = S; flat(S, mix(S.color, INK, .88));
+      const B = frameBox(S), w = W - B.m - B.right; const land = isLand(S);
+      const hb = head(S, B.m, B.top, w, BONE, BONE_SUB);
+      const N = B.tall ? 22 : land ? 44 : 30; const base = B.bottom - 30 * u; const maxH = (B.tall ? H * 0.28 : H * 0.34);
+      const slot = w / N, bw = slot * 0.7;
+      const pk = ctx.canvas._pk && ctx.canvas._pk.length === N ? ctx.canvas._pk : (ctx.canvas._pk = new Float32Array(N));
+      for (let i = 0; i < N; i++) {
+        const lo = Math.floor(2 * Math.pow(30, i / N)), hi = Math.max(lo + 1, Math.floor(2 * Math.pow(30, (i + 1) / N)));
+        const v = Math.pow(clamp(band(S, lo, hi) * (1 + i / N * 0.6), 0, 1), 1.5);
+        const h = Math.max(6 * u, v * maxH); const x = B.m + i * slot;
+        ctx.fillStyle = BONE; ctx.fillRect(x, base - h, bw, h);
+        pk[i] = Math.max(pk[i] - 0.01, v);
+        ctx.fillStyle = S.accent; ctx.fillRect(x, base - Math.max(6 * u, pk[i] * maxH) - 16 * u, bw, 7 * u);
       }
+      if (S.showProgress) {
+        ctx.save(); ctx.font = font(400, 24 * u, F.m); ctx.fillStyle = BONE_SUB; ctx.textBaseline = 'top';
+        ctx.fillText(fmt(S.el), B.m, base + 18 * u); ctx.textAlign = 'right'; ctx.fillText(fmt(S.dur), B.m + w, base + 18 * u); ctx.restore();
+      }
+      const ly = (hb + base - maxH - 30 * u) / 2;
+      drawLyrics(S, { x: B.m, y: ly, w, align: 'left', valign: 'middle', size: (land ? 56 : 66) * u, color: BONE, nextColor: BONE_SUB });
+    }
+  },
+
+  scope: {
+    name: 'Scope', blurb: 'live waveform',
+    draw(S) {
+      const { ctx, W, H, u } = S; flat(S, '#0d0c0f');
+      const B = frameBox(S), w = W - B.m - B.right, cx = B.m + w / 2; const land = isLand(S);
+      ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = BONE;
+      fitSize(ctx, S.title, 700, 44 * u, w); ctx.fillText(S.title, cx, B.top + 40 * u);
+      ctx.font = font(500, 28 * u); ctx.fillStyle = BONE_SUB; ctx.fillText(ellip(ctx, S.artist, w), cx, B.top + 82 * u); ctx.restore();
+      const cy = land ? H * 0.42 : B.tall ? H * 0.36 : H * 0.4; const amp = (land ? H * 0.2 : B.tall ? H * 0.13 : H * 0.15) * (0.6 + 0.6 * (S.bass || 0));
+      const wv = S.wave; const N = wv.length;
+      const trace = (scale, col, lw, shift) => {
+        ctx.beginPath();
+        for (let i = 0; i < N; i++) {
+          const x = B.m + (i / (N - 1)) * w; const env = Math.sin(Math.PI * i / (N - 1));
+          const y = cy + wv[(i + shift) % N] * amp * scale * env;
+          if (i === 0) ctx.moveTo(x, y); else { const px = B.m + ((i - 0.5) / (N - 1)) * w; ctx.quadraticCurveTo(px, y, x, y); }
+        }
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
+      };
+      trace(0.6, 'rgba(241,238,232,.18)', 4 * u, 24);
+      trace(1, S.accent, 7 * u, 0);
+      if (S.showProgress) { ctx.fillStyle = BONE; ctx.beginPath(); ctx.arc(B.m + w * S.p, cy, 9 * u, 0, Math.PI * 2); ctx.fill(); }
+      drawLyrics(S, { x: B.m, y: cy + (land ? H * 0.24 : B.tall ? H * 0.18 : H * 0.2), w, align: 'center', size: (land ? 54 : 62) * u, color: BONE, nextColor: BONE_SUB });
     }
   },
 
   type: {
     name: 'Type', blurb: 'giant lyrics',
     draw(S) {
-      const { ctx, W, H, u } = S; const field = hexToRgb(S.accent); flat(S, S.accent); grain(S, .05);
-      const dark = lum(field) > 0.55; const ink = dark ? '#16151a' : BONE; const soft = dark ? 'rgba(22,21,26,.28)' : 'rgba(241,238,232,.36)';
-      const tall = H / W > 1.5; const m = W * 0.08; const top = safeTop(S); const right = tall ? W * 0.13 : m;
-      const hs = Math.min(W, H) * 0.095; coverSq(S, m, top, hs, 0, true);
-      ctx.save(); ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic'; const tw = W - m - right - hs - 26 * u;
-      ctx.font = font(700, 34 * u); ctx.fillText(ellip(ctx, S.title, tw), m + hs + 26 * u, top + hs * 0.46);
-      ctx.font = font(500, 30 * u); ctx.globalAlpha = .7; ctx.fillText(ellip(ctx, S.artist, tw), m + hs + 26 * u, top + hs * 0.46 + 42 * u); ctx.restore();
-      const bottom = tall ? H * 0.78 : H - m * 1.3; const ay = top + hs + 50 * u;
-      bigWords(S, { x: m, y: ay, w: W - m - right, h: bottom - ay - 40 * u }, ink, soft);
-      if (S.showProgress) {
-        ctx.fillStyle = soft; ctx.fillRect(m, bottom, W - m - right, 5 * u); ctx.fillStyle = ink; ctx.fillRect(m, bottom, (W - m - right) * S.p, 5 * u);
-      }
+      const { ctx, W, H, u } = S; const field = hexToRgb(S.accent); flat(S, S.accent);
+      const dark = lum(field) > 0.55; const ink = dark ? '#16151a' : BONE; const soft = dark ? 'rgba(22,21,26,.26)' : 'rgba(241,238,232,.34)';
+      const B = frameBox(S), w = W - B.m - B.right;
+      const hb = head(S, B.m, B.top, w, ink, dark ? 'rgba(22,21,26,.6)' : BONE_SUB);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3 * u; ctx.strokeRect(B.m, B.top, 84 * u, 84 * u);
+      bigWords(S, { x: B.m, y: hb + 50 * u, w, h: B.bottom - hb - 100 * u }, ink, soft);
+      if (S.showProgress) line(S, B.m, B.bottom, w, ink, soft);
     }
   },
 
-  wave: {
-    name: 'Waveform', blurb: 'for producers',
+  spin: {
+    name: 'Spin', blurb: 'spinning record',
     draw(S) {
-      const { ctx, W, H, u } = S; flat(S, mix(S.color, INK, .88)); grain(S, .06);
-      const land = isLand(S); const m = W * (land ? 0.07 : 0.08); let top = safeTop(S);
-      if (!land && H / W < 1.5) { const hs0 = Math.min(W * 0.2, H * 0.12), wh0 = Math.min(W * 0.42, H * 0.2); const blk = hs0 + 90 * u + wh0 + 40 * u + 84 * u + 50 * u + 200 * u; top = Math.max(top, (H - blk) / 2); }
-      const rightPad = H / W > 1.5 ? W * 0.04 : 0;
-      const hs = land ? H * 0.15 : Math.min(W * 0.2, H * 0.12); coverSq(S, m, top, hs, 0, true);
-      const tx = m + hs + 28 * u, tw = W - tx - m - rightPad;
-      ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.fillStyle = BONE; fitSize(ctx, S.title, 800, 54 * u, tw); ctx.fillText(S.title, tx, top + hs * 0.5);
-      ctx.font = font(500, 32 * u); ctx.fillStyle = BONE_SUB; ctx.fillText(ellip(ctx, S.artist, tw), tx, top + hs * 0.5 + 46 * u); ctx.restore();
-      const wx = m, ww = W - 2 * m - rightPad, wh = land ? H * 0.22 : Math.min(W * 0.42, H * 0.2);
-      const wcy = land ? H * 0.45 : top + hs + 90 * u + wh / 2;
-      const N = land ? 120 : 64; const pk = snippetPeaks(S, N); const bw = ww / N;
-      for (let i = 0; i < N; i++) {
-        const f = (i + 0.5) / N; const played = f <= S.p; const near = Math.abs(f - S.p) < 0.025;
-        let v = pk[i]; if (near && S.playing) v = Math.min(1, v * (1 + S.bass * 0.5));
-        const h = Math.max(6 * u, v * wh);
-        ctx.fillStyle = played ? S.accent : 'rgba(241,238,232,.18)';
-        ctx.fillRect(wx + i * bw + bw * 0.2, wcy - h / 2, bw * 0.6, h);
-      }
-      ctx.fillStyle = BONE; ctx.fillRect(wx + ww * S.p - 1.5 * u, wcy - wh * 0.62, 3 * u, wh * 1.24);
-      const big = (land ? 64 : 88) * u; const tty = wcy + wh / 2 + 44 * u;
-      ctx.save(); ctx.font = font(500, big, F.m); ctx.fillStyle = BONE; ctx.textBaseline = 'alphabetic';
-      const cur = fmt(S.el); ctx.fillText(cur, wx, tty + big * 0.8); const cw = ctx.measureText(cur).width;
-      ctx.font = font(400, big * 0.4, F.m); ctx.fillStyle = BONE_SUB; ctx.fillText(' / ' + fmt(S.dur), wx + cw, tty + big * 0.8); ctx.restore();
-      drawLyrics(S, { x: wx, y: tty + big + 50 * u, w: ww, align: 'left', size: (land ? 50 : 58) * u, color: BONE, nextColor: BONE_SUB });
+      const { ctx, W, H, u } = S; const TAU = Math.PI * 2; flat(S, mix(S.color, INK, .86));
+      const B = frameBox(S); const k = S.kick || 0; const ac = hexToRgb(S.accent);
+      let R, cx, cy;
+      if (B.tall) { R = W * 0.5; cx = W * 0.66; cy = H * 0.26; }
+      else if (isLand(S)) { R = H * 0.6; cx = W * 0.76; cy = H / 2; }
+      else { R = Math.min(W * 0.44, H * 0.4); cx = W * 0.86; cy = H * 0.42; }
+      const r = R * (1 + 0.012 * k);
+      if (k > 0.04) { ctx.strokeStyle = rgba(ac, 0.7 * k); ctx.lineWidth = 5 * u; ctx.beginPath(); ctx.arc(cx, cy, r * (1.03 + 0.09 * (1 - k)), 0, TAU); ctx.stroke(); }
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(S.t * 0.5 * TAU);
+      ctx.fillStyle = '#0b0a0d'; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(241,238,232,.08)'; ctx.lineWidth = 2 * u;
+      [0.5, 0.58, 0.66, 0.74, 0.82, 0.9].forEach(f => { ctx.beginPath(); ctx.arc(0, 0, r * f, 0, TAU); ctx.stroke(); });
+      const lr = r * 0.36; ctx.save(); ctx.beginPath(); ctx.arc(0, 0, lr, 0, TAU); ctx.clip(); drawCover(ctx, S.cover, -lr, -lr, lr * 2, lr * 2); ctx.restore();
+      ctx.fillStyle = '#0b0a0d'; ctx.beginPath(); ctx.arc(0, 0, r * 0.03, 0, TAU); ctx.fill();
+      ctx.restore();
+      const tall = B.tall; const x = B.m; const w = tall ? W - B.m - B.right : W * 0.46;
+      let y = tall ? cy + r + 48 * u : H * 0.2;
+      ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.fillStyle = BONE;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = (-2 * u).toFixed(1) + 'px';
+      const ts = fitSize(ctx, S.title, 800, 84 * u, w); ctx.fillText(S.title, x, y + ts * 0.8);
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+      ctx.font = font(500, 32 * u); ctx.fillStyle = BONE_SUB; ctx.fillText(ellip(ctx, S.artist, w), x, y + ts * 0.8 + 48 * u); ctx.restore();
+      y += ts * 0.8 + 92 * u;
+      if (S.showProgress) { line(S, x, y, w, S.accent, 'rgba(241,238,232,.16)'); y += 50 * u; }
+      drawLyrics(S, { x, y, w, align: 'left', size: (tall ? 62 : 56) * u, color: BONE, nextColor: BONE_SUB });
     }
   },
 
@@ -425,7 +452,7 @@ const STYLES = {
       ctx.fillText('SIDE A', m, top); ctx.textAlign = 'right'; ctx.fillText(fmt(S.el) + ' / ' + fmt(S.dur), W - m, top); ctx.restore();
       const prog = (x, y, w) => {
         ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(x, y, w, 3 * u); ctx.fillStyle = ink; ctx.fillRect(x, y, w * S.p, 3 * u);
-        ctx.fillStyle = S.accent; ctx.beginPath(); ctx.arc(x + w * S.p, y + 1.5 * u, 9 * u, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = S.accent; ctx.beginPath(); ctx.arc(x + w * S.p, y + 1.5 * u, 9 * u * (1 + 0.7 * (S.kick || 0)), 0, Math.PI * 2); ctx.fill();
       };
       const lyr = { color: ink, dim: 'rgba(20,20,20,.22)', nextColor: 'rgba(20,20,20,.6)', fam: F.s, weight: 400, lh: 1.04 };
       let y = top + 50 * u;
@@ -450,60 +477,25 @@ const STYLES = {
       }
     }
   },
-
-  vhs: {
-    name: 'VHS', blurb: 'tape, scanlines',
-    draw(S) {
-      const { ctx, W, H, u } = S; const bg = retroBg(S, W, H);
-      ctx.drawImage(bg, 0, 0);
-      const seed = Math.floor(S.t * 12);
-      for (let k = 0; k < 3; k++) {
-        const by = rand(seed * 3 + k) * H, bh = (8 + rand(seed + k * 7) * 40) * u, off = (rand(seed * 5 + k) - 0.5) * 18 * u;
-        ctx.drawImage(bg, 0, by, W, bh, off, by, W, bh);
-      }
-      ctx.fillStyle = 'rgba(10,0,20,.3)'; ctx.fillRect(0, 0, W, H);
-      const ty = ((S.t * 0.18) % 1.3 - 0.15) * H; const tg = ctx.createLinearGradient(0, ty, 0, ty + 60 * u);
-      tg.addColorStop(0, 'rgba(255,255,255,0)'); tg.addColorStop(.5, 'rgba(255,255,255,.1)'); tg.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = tg; ctx.fillRect(0, ty, W, 60 * u);
-      scanlines(S); grain(S, .16); vignette(S, .65);
-      const m = W * 0.07, top = safeTop(S), ch = 3 * u; const vt = { chroma: ch };
-      ctx.save(); ctx.textBaseline = 'top'; ctx.font = font(400, 78 * u, F.v);
-      txt(ctx, 'PLAY', m, top, '#fff', vt); const pw = ctx.measureText('PLAY ').width;
-      ctx.fillStyle = '#fff'; tri(ctx, m + pw, top + 36 * u, 44 * u);
-      ctx.textAlign = 'right'; txt(ctx, 'SP', W - m, top, '#fff', vt); ctx.restore();
-      const by = H - (H / W > 1.5 ? H * 0.2 : H * 0.09);
-      ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.font = font(400, 44 * u, F.v);
-      const d = new Date(); const ds = d.toLocaleString('en-US', { month: 'short' }).toUpperCase() + '.' + String(d.getDate()).padStart(2, '0') + ' ' + d.getFullYear();
-      txt(ctx, ds, m, by - 70 * u, '#fff', vt); ctx.font = font(400, 68 * u, F.v);
-      const e = Math.floor(S.el); txt(ctx, `00:${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`, m, by, '#fff', vt);
-      if (S.showProgress) { const n = 20, sw = 18 * u, gap = 6 * u; for (let i = 0; i < n; i++) { ctx.fillStyle = i / n < S.p ? '#fff' : 'rgba(255,255,255,.25)'; ctx.fillRect(W - m - (n - i) * (sw + gap) + gap, by - 30 * u, sw, 30 * u); } }
-      ctx.restore();
-      const cyT = H / W > 1.5 ? H * 0.42 : H * 0.36;
-      ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; const T = S.title.toUpperCase();
-      fitSize(ctx, T, 400, 150 * u, W - 2 * m, F.v); txt(ctx, T, W / 2, cyT, '#fff', { chroma: ch * 1.6 });
-      ctx.font = font(400, 56 * u, F.v); txt(ctx, ellip(ctx, S.artist.toUpperCase(), W - 2 * m), W / 2, cyT + 70 * u, 'rgba(255,255,255,.85)', vt); ctx.restore();
-      drawLyrics(S, { x: m, y: cyT + 190 * u, w: W - 2 * m, align: 'center', size: 66 * u, color: '#ffe45c', dim: 'rgba(255,228,92,.35)', fam: F.v, weight: 400, box: 'rgba(0,0,0,.72)', showNext: false, lh: 1.25 });
-    }
-  }
 };
 
 function render(ctx, W, H, D) {
   const S = Object.assign({}, D, { ctx, W, H, u: Math.min(W, H) / 1000 });
   S.dur = Math.max(0.01, D.end - D.start); S.el = clamp(D.t - D.start, 0, S.dur); S.p = S.el / S.dur;
-  ctx.save(); ctx.clearRect(0, 0, W, H); (STYLES[D.style] || STYLES.record).draw(S); ctx.restore();
+  ctx.save(); ctx.clearRect(0, 0, W, H); (STYLES[D.style] || STYLES.punch).draw(S); ctx.restore();
 }
 
 /* =========================================================
    COVER + COLOR
    ========================================================= */
 function makeDefaultCover(accent, label = 'Your Track', bg = '#16151a', fg = '#f1eee8') {
-  const c = mk(1000, 1000), x = c.getContext('2d');
-  x.fillStyle = bg; x.fillRect(0, 0, 1000, 1000);
-  x.fillStyle = accent; x.beginPath(); x.arc(660, 640, 420, 0, Math.PI * 2); x.fill();
-  x.strokeStyle = bg; x.globalAlpha = .18; x.lineWidth = 4;
-  for (let r = 180; r < 420; r += 34) { x.beginPath(); x.arc(660, 640, r, 0, Math.PI * 2); x.stroke(); }
-  x.globalAlpha = 1; x.fillStyle = bg; x.beginPath(); x.arc(660, 640, 120, 0, Math.PI * 2); x.fill();
-  x.fillStyle = accent; x.beginPath(); x.arc(660, 640, 16, 0, Math.PI * 2); x.fill();
+  // Centred record so any crop (square, circle label, 9:16 full-bleed) stays clean.
+  const c = mk(1000, 1000), x = c.getContext('2d'), TAU = Math.PI * 2;
+  x.fillStyle = accent; x.fillRect(0, 0, 1000, 1000);
+  // Placeholder art stays quiet: a flat field with faint grooves, nothing that fights the type.
+  x.strokeStyle = bg; x.globalAlpha = .1; x.lineWidth = 3;
+  for (let r = 120; r < 720; r += 34) { x.beginPath(); x.arc(500, 500, r, 0, TAU); x.stroke(); }
+  x.globalAlpha = 1;
   return c;
 }
 function dominant(img) {
@@ -567,15 +559,16 @@ const DEMO_LINES = [
   { t: 11.2, text: 'then export it and post it anywhere' }
 ];
 const state = {
-  style: 'record', ratio: '9:16', custom: [3, 4], title: 'Your Track', artist: 'You', accent: '#ff4d2e',
-  lyricStyle: 'fade', showProgress: true, loop: true, guides: true,
+  style: 'punch', ratio: '9:16', custom: [3, 4], title: 'Your Track', artist: 'You', accent: '#ff4d2e',
+  lyricStyle: 'fade', showProgress: true, loop: true, guides: false,
   start: 0, end: DEMO_DUR, duration: 0, lines: DEMO_LINES.map(l => ({ ...l })), demoLyrics: true,
   cover: null, coverIsDefault: true, color: { r: 255, g: 90, b: 54 }, peaks: null, fileName: null
 };
 let hasAudio = false, timed = [];
 const audio = new Audio(); audio.preload = 'auto';
 let actx, srcNode, analyser, speaker, recDest, freq;
-const LV = new Float32Array(128); let BASS = 0;
+const LV = new Float32Array(128); let BASS = 0, KICK = 0; const WAVE = new Float32Array(160);
+const DLV = new Float32Array(128); const DWAVE = new Float32Array(160); let DKICK = 0, DBASS = 0; let analyser2, tbuf, kickAn, kbuf, bAvg = 0, lastKick = 0;
 
 function ensureGraph() {
   if (actx) return;
@@ -584,6 +577,10 @@ function ensureGraph() {
   speaker = actx.createGain(); recDest = actx.createMediaStreamDestination();
   srcNode.connect(analyser); analyser.connect(speaker); speaker.connect(actx.destination); srcNode.connect(recDest);
   freq = new Uint8Array(analyser.frequencyBinCount);
+  analyser2 = actx.createAnalyser(); analyser2.fftSize = 1024; srcNode.connect(analyser2); tbuf = new Float32Array(analyser2.fftSize);
+  // Kick detector: RMS of the sub-140 Hz band, compared to its running average.
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 140; lp.Q.value = 0.7;
+  kickAn = actx.createAnalyser(); kickAn.fftSize = 512; srcNode.connect(lp); lp.connect(kickAn); kbuf = new Float32Array(kickAn.fftSize);
 }
 function refreshTimed() { timed = state.lines.filter(l => l.t != null && l.text.trim()).sort((a, b) => a.t - b.t); }
 refreshTimed();
@@ -597,8 +594,8 @@ function data(now, overrides = {}) {
   return Object.assign({
     style: state.style, cover: state.cover, title: state.title || 'Untitled', artist: state.artist || '', accent: state.accent, color: state.color,
     lyricStyle: state.lyricStyle, showProgress: state.showProgress, lyrics: timed,
-    start: hasAudio ? state.start : 0, end: hasAudio ? state.end : DEMO_DUR, t, levels: LV, bass: BASS,
-    playing: hasAudio ? !audio.paused : true, peaks: state.peaks
+    start: hasAudio ? state.start : 0, end: hasAudio ? state.end : DEMO_DUR, t, levels: hasAudio ? LV : DLV, bass: hasAudio ? BASS : DBASS, kick: hasAudio ? KICK : DKICK, wave: hasAudio ? WAVE : DWAVE,
+    playing: hasAudio ? !audio.paused : true, peaks: state.peaks, plain: state.coverIsDefault
   }, overrides);
 }
 
@@ -647,7 +644,7 @@ function renderThumbs() {
   $$('.style-btn', stylesEl).forEach(b => {
     const c = $('canvas', b); c.width = tw; c.height = th;
     c.style.aspectRatio = `${tw}/${th}`;
-    render(c.getContext('2d'), tw, th, data(performance.now(), { style: b.dataset.style, t, levels: lv, bass: 0.3, lyricStyle: 'fade', playing: true }));
+    render(c.getContext('2d'), tw, th, data(performance.now(), { style: b.dataset.style, t, levels: lv, bass: 0.3, kick: 0.4, wave: DWAVE, lyricStyle: 'fade', playing: true }));
   });
 }
 function setStyle(k) {
@@ -937,12 +934,12 @@ const DEMO_HERO_LYRICS = [
   { t: 7.2, text: 'hit save before it drops' }, { t: 10.8, text: 'snippet season' }
 ];
 const REEL = [
-  { style: 'record', title: 'Midnight Drive', accent: '#ff4d2e', bg: '#16151a', fg: '#f1eee8' },
-  { style: 'sleeve', title: 'Corner Store', accent: '#f1eee8', bg: '#2f5bff', fg: '#f1eee8' },
-  { style: 'type', title: 'Send It', accent: '#c6f432', bg: '#16151a', fg: '#f1eee8', look: '#c6f432' },
-  { style: 'wave', title: 'Late Bus Home', accent: '#ff6fb5', bg: '#16151a', fg: '#f1eee8' },
-  { style: 'poster', title: 'Sunday Tape', accent: '#16151a', bg: '#ff4d2e', fg: '#16151a', look: '#ff4d2e' },
-  { style: 'vhs', title: 'Tape 03', accent: '#2f5bff', bg: '#f1eee8', fg: '#16151a' }
+  { style: 'punch', title: 'Midnight Drive', art: '#ff4d2e', accent: '#ff4d2e' },
+  { style: 'spin', title: 'Tape 03', art: '#ff6fb5', accent: '#ff6fb5' },
+  { style: 'spectrum', title: 'Corner Store', art: '#2f5bff', accent: '#c6f432' },
+  { style: 'scope', title: 'Late Bus Home', art: '#16151a', accent: '#ff6fb5' },
+  { style: 'type', title: 'Send It', art: '#16151a', accent: '#c6f432' },
+  { style: 'poster', title: 'Sunday Tape', art: '#ff4d2e', accent: '#ff4d2e' }
 ];
 const reelEl = $('#reel');
 const heroDemos = REEL.map((d, i) => {
@@ -953,7 +950,7 @@ const heroDemos = REEL.map((d, i) => {
   reelEl.appendChild(b); const c = $('canvas', b);
   return { ...d, c, ctx: c.getContext('2d'), cover: null, off: i * 2.3 };
 });
-function buildHeroCovers() { heroDemos.forEach(d => { d.cover = makeDefaultCover(d.accent === d.bg ? d.fg : d.accent, d.title, d.bg, d.fg); d.color = dominant(d.cover); }); }
+function buildHeroCovers() { heroDemos.forEach(d => { d.cover = makeDefaultCover(d.art, d.title, '#16151a'); d.color = dominant(d.cover); }); }
 let heroVisible = false;
 new IntersectionObserver(es => es.forEach(e => { heroVisible = e.isIntersecting; if (e.isIntersecting) $('.looks').classList.add('in'); }), { threshold: 0.15 }).observe($('.looks'));
 
@@ -961,16 +958,36 @@ new IntersectionObserver(es => es.forEach(e => { heroVisible = e.isIntersecting;
    MAIN LOOP
    ========================================================= */
 let lastUI = 0, frameN = 0;
-function updateLevels(now) {
-  if (hasAudio && !audio.paused && analyser) { analyser.getByteFrequencyData(freq); for (let i = 0; i < LV.length; i++) LV[i] = freq[i] / 255; }
-  else {
-    const tt = now / 1000;
-    for (let i = 0; i < LV.length; i++) {
-      const target = hasAudio ? 0.05 : Math.max(0, 0.3 + 0.25 * Math.sin(tt * 2.2 + i * 0.35) * Math.sin(tt * 1.3 + i * 0.11) + 0.2 * Math.max(0, Math.sin(tt * 4.2)) * (i < 12 ? 1 : 0.4));
-      LV[i] += (target - LV[i]) * 0.15;
-    }
+function synth(tt) {
+  // Demo signal at 120 bpm so the looks move before any audio is loaded.
+  const ph = (tt * 2) % 1; DKICK = Math.exp(-ph * 7);
+  for (let i = 0; i < DLV.length; i++) {
+    const low = i < 10 ? DKICK * (1 - i / 14) : 0;
+    const mid = 0.32 + 0.22 * Math.sin(tt * 2.1 + i * 0.33) * Math.sin(tt * 0.9 + i * 0.07);
+    DLV[i] = clamp(Math.max(low, mid * (1 - i / 160)) + 0.08 * Math.sin(tt * 7 + i), 0, 1);
   }
-  const b = (LV[2] + LV[3] + LV[4] + LV[5]) / 4; BASS = clamp((b - 0.35) / 0.6, 0, 1);
+  DBASS = DKICK * 0.8;
+  for (let i = 0; i < DWAVE.length; i++) DWAVE[i] = 0.55 * Math.sin(i * 0.12 + tt * 6) * (0.4 + DKICK) + 0.25 * Math.sin(i * 0.41 - tt * 3) + 0.1 * Math.sin(i * 1.3 + tt * 11);
+}
+function updateLevels(now) {
+  const tt = now / 1000; synth(tt);
+  if (hasAudio && !audio.paused && analyser) {
+    analyser.getByteFrequencyData(freq); for (let i = 0; i < LV.length; i++) LV[i] = freq[i] / 255;
+    analyser2.getFloatTimeDomainData(tbuf); const step = tbuf.length / WAVE.length;
+    let pk = 0.02; for (let i = 0; i < tbuf.length; i++) pk = Math.max(pk, Math.abs(tbuf[i]));
+    for (let i = 0; i < WAVE.length; i++) WAVE[i] = WAVE[i] * 0.35 + (tbuf[Math.floor(i * step)] / pk) * 0.65;
+  } else {
+    for (let i = 0; i < LV.length; i++) LV[i] *= 0.9;
+    for (let i = 0; i < WAVE.length; i++) WAVE[i] *= 0.9;
+  }
+  const raw = (LV[1] + LV[2] + LV[3] + LV[4]) / 4;
+  BASS = clamp((raw - 0.35) / 0.6, 0, 1);
+  if (hasAudio && !audio.paused && kickAn) {
+    kickAn.getFloatTimeDomainData(kbuf); let sq = 0; for (let i = 0; i < kbuf.length; i++) sq += kbuf[i] * kbuf[i];
+    const rms = Math.sqrt(sq / kbuf.length);
+    if (rms > bAvg * 1.35 && rms > 0.04 && now - lastKick > 220) { KICK = 1; lastKick = now; } else KICK *= 0.86;
+    bAvg = bAvg * 0.9 + rms * 0.1;
+  } else KICK *= 0.86;
 }
 function frame(now) {
   requestAnimationFrame(frame); frameN++;
@@ -993,7 +1010,7 @@ function frame(now) {
     const lv = LV;
     heroDemos.forEach(d => {
       const t = ((now / 1000) + d.off) % DEMO_DUR;
-      render(d.ctx, d.c.width, d.c.height, { style: d.style, cover: d.cover, title: d.title, artist: 'you', accent: d.look || d.accent, color: d.color, lyricStyle: d.style === 'type' ? 'pop' : d.style === 'sleeve' ? 'karaoke' : 'fade', showProgress: true, lyrics: DEMO_HERO_LYRICS, start: 0, end: DEMO_DUR, t, levels: lv, bass: BASS, playing: true, peaks: null });
+      render(d.ctx, d.c.width, d.c.height, { style: d.style, cover: d.cover, title: d.title, artist: 'you', accent: d.accent, color: d.color, lyricStyle: d.style === 'type' ? 'pop' : d.style === 'punch' ? 'karaoke' : 'fade', showProgress: true, lyrics: DEMO_HERO_LYRICS, start: 0, end: DEMO_DUR, plain: true, t, levels: DLV, bass: DBASS, kick: DKICK, wave: DWAVE, playing: true, peaks: null });
     });
   }
 }
