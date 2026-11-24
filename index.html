@@ -8,11 +8,12 @@
 <link rel="icon" href="assets/logo.svg?v=4" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=VT323&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="style.css?v=8">
-<script>try{const t=localStorage.getItem('wf-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
+<div class="ambient-wrap" aria-hidden="true"><canvas id="ambient" width="64" height="40"></canvas></div>
+<div class="ambient-dim" aria-hidden="true"></div>
 <div class="drop-overlay" id="dropOverlay" aria-hidden="true"><p>Drop it</p></div>
 
 <header class="nav">
@@ -21,48 +22,48 @@
     <a href="#looks">Looks</a>
     <a href="#studio">Studio</a>
     <a href="https://github.com/1jacobl/waxframe" target="_blank" rel="noopener">GitHub</a>
-    <button class="theme" id="themeBtn" type="button" aria-label="Toggle light and dark">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
-    </button>
+    <label class="btn sm solid nav-cta" for="audioInput">Drop an mp3</label>
   </nav>
 </header>
 
 <main id="top">
   <section class="hero">
-    <div class="hero-main">
-      <p class="label rise" style="--d:0">Audio to video · Stories, Reels, TikTok</p>
-      <h1 class="rise" style="--d:1">Post the snippet, not the mp3.</h1>
+    <p class="pill in-1">Audio to video for Stories, Reels and TikTok</p>
+    <h1 class="in-2">Your snippet,<br>now playing.</h1>
+    <p class="lede in-3">Drop a track and Waxframe turns it into the screen you see in Apple Music: your cover alive behind glass, lyrics filling in word by word, every frame moving with the beat. Then export it for the feed.</p>
+    <div class="actions in-4">
+      <label class="btn solid" for="audioInput">Drop an mp3</label>
+      <a class="btn glass-btn" href="#looks">See the looks</a>
     </div>
-    <div class="hero-side rise" style="--d:2">
-      <p>Waxframe turns a bounce into a video people actually stop on: your cover, your lyrics synced line by line, framed for a story or a feed post. It runs in your browser, so the track never leaves your computer.</p>
-      <div class="actions">
-        <label class="btn solid" for="audioInput">Drop an mp3</label>
-        <a class="btn" href="#looks">See the looks <span aria-hidden="true">↓</span></a>
-      </div>
+    <div class="hero-phones">
+      <div class="phone side left"><canvas width="540" height="960" data-demo="lyrics"></canvas></div>
+      <div class="phone main"><canvas width="540" height="960" data-demo="nowplaying"></canvas></div>
+      <div class="phone side right"><canvas width="540" height="960" data-demo="punch"></canvas></div>
     </div>
-    <dl class="facts rise" style="--d:3">
-      <div><dt>Frames</dt><dd>9:16 story, 4:5 feed, 1:1, 16:9, or any ratio you type. Exports 1080p MP4.</dd></div>
-      <div><dt>Lyrics</dt><dd>Paste them, tap along while it plays. Fade, pop or karaoke. Imports and saves .lrc.</dd></div>
-      <div><dt>Private</dt><dd>No upload, no account. Reads title, artist and cover art straight from your mp3 tags.</dd></div>
+    <dl class="facts">
+      <div class="glass reveal" style="--d:0ms"><dt>Any frame</dt><dd>9:16 story, 4:5 feed, 1:1, 16:9 or your own ratio, exported as a 1080p MP4.</dd></div>
+      <div class="glass reveal" style="--d:90ms"><dt>Lyrics that fill</dt><dd>Paste them and tap along while it plays. Import or save .lrc files.</dd></div>
+      <div class="glass reveal" style="--d:180ms"><dt>Moves on the beat</dt><dd>Kicks are detected live, so the art punches exactly where your drums hit.</dd></div>
+      <div class="glass reveal" style="--d:270ms"><dt>Stays private</dt><dd>No upload, no account. Title, artist and cover come from your mp3 tags.</dd></div>
     </dl>
   </section>
 
   <section class="looks" id="looks">
     <div class="looks-head">
-      <h2>Six looks, all sized for the feed.</h2>
-      <p>Each one keeps text clear of the app's buttons and captions. Tap a look to open it in the studio.</p>
+      <h2 class="reveal">Six looks. Every one reacts.</h2>
+      <p class="reveal" style="--d:80ms">Text stays clear of the app's buttons and captions. Tap a look to open it in the studio.</p>
     </div>
     <div class="reel" id="reel"></div>
   </section>
 
   <section id="studio" class="studio">
     <div class="studio-head">
-      <h2>Studio</h2>
-      <p>Drop a track anywhere on this page. Cover art goes the same way.</p>
+      <h2 class="reveal">Studio</h2>
+      <p class="reveal" style="--d:80ms">Drop a track anywhere on this page. Cover art goes the same way.</p>
     </div>
 
     <div class="studio-grid">
-      <aside class="panel">
+      <aside class="panel glass reveal">
         <label class="drop" id="drop" for="audioInput">
           <input type="file" id="audioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" hidden>
           <span class="drop-disc" aria-hidden="true"></span>
@@ -121,14 +122,14 @@
         </div>
       </aside>
 
-      <div class="stage-col" id="stageCol">
+      <div class="stage-col reveal" id="stageCol" style="--d:80ms">
         <div class="stage-wrap" id="stageWrap">
           <canvas id="stage" width="1080" height="1920"></canvas>
           <div class="guides" id="guides" aria-hidden="true"><div class="g-top"><span>profile + sound</span></div><div class="g-right"><span>like, comment, share</span></div><div class="g-bot"><span>caption + buttons</span></div><p class="g-note">Preview only. Not in the export.</p></div>
           <div class="demo-badge" id="demoBadge">Demo · drop an mp3 to make it yours</div>
         </div>
 
-        <div class="transport">
+        <div class="transport glass">
           <button class="play" id="playBtn" type="button" aria-label="Play">
             <svg class="i-play" viewBox="0 0 24 24" width="20" height="20"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>
             <svg class="i-pause" viewBox="0 0 24 24" width="20" height="20"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/></svg>
@@ -139,7 +140,7 @@
           <button class="toggle" id="guidesBtn" type="button" aria-pressed="false">Safe zones</button>
         </div>
 
-        <div class="trim">
+        <div class="trim glass">
           <div class="trim-head"><span>Snippet</span><small id="trimHint">Drag the handles to pick the part that hits</small></div>
           <canvas id="trim" aria-label="Snippet range"></canvas>
           <div class="trim-row">
@@ -161,7 +162,7 @@
         </div>
       </div>
 
-      <aside class="panel lyrics">
+      <aside class="panel lyrics glass reveal" style="--d:160ms">
         <div class="lyrics-head">
           <h3>Lyrics</h3>
           <div class="seg" id="lyricStyle" role="radiogroup" aria-label="Lyric animation">
@@ -206,7 +207,7 @@
 </footer>
 
 <div class="modal" id="exportModal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+  <div class="modal-card glass" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
     <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="ring-bg"/><circle cx="60" cy="60" r="52" class="ring-fg" id="exportRing"/></svg><span id="exportPct">0%</span></div>
     <h3 id="exportTitle">Recording your video</h3>
     <p class="fine" id="exportMsg">Keep this tab open and visible. It records in real time.</p>
@@ -219,6 +220,6 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js?v=8"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

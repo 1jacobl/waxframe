@@ -2,7 +2,7 @@
 
 # Waxframe
 
-Post the snippet, not the mp3. Waxframe turns an audio snippet into a clean video for Instagram stories, Reels and TikTok: your cover art, your lyrics synced line by line, framed for the feed.
+Your snippet, now playing. Waxframe turns an audio snippet into an Apple Music-style video for Instagram stories, Reels and TikTok: your cover art, your lyrics synced line by line, framed for the feed.
 
 **Live:** https://1jacobl.github.io/waxframe/
 
@@ -11,7 +11,8 @@ Post the snippet, not the mp3. Waxframe turns an audio snippet into a clean vide
 ## What it does
 
 - **Drop an mp3** (or wav, m4a). Title, artist and cover art are read from the file's ID3 tags.
-- **Six looks that react to the music**: Punch (cover hits on every kick), Spin (a record cut by the frame), Spectrum (live bars), Scope (the live waveform), Type (giant word-by-word lyrics), Poster (print layout).
+- **Apple Music-style looks**: Now Playing (your cover alive behind liquid-glass controls) and Lyrics (the active line fills word by word while the rest blur and glide).
+- **Four more that react to the music**: Punch (cover hits on every kick), Spin (a record cut by the frame), Type (giant word-by-word lyrics), Scope (the live waveform).
 - **Beat detection**: kicks are picked out of the sub-140 Hz band in real time, so the visuals land on the beat in the export too.
 - **Any frame**: 9:16 story, 4:5 feed, 1:1, 16:9, or a custom ratio. Text stays clear of the platform's buttons and captions; toggle *Safe zones* to see them.
 - **Lyrics**: paste them and tap along while the track plays (space bar works). Fade, pop or karaoke. Import and save `.lrc` files.
