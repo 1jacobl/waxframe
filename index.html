@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waxframe</title>
+<meta name="description" content="Turn an mp3 snippet into a clean, lyric-synced video for Instagram stories, Reels and TikTok. Runs in your browser.">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=VT323&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="style.css">
+<script>try{const t=localStorage.getItem('wf-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="drop-overlay" id="dropOverlay" aria-hidden="true"><p>Drop it</p></div>
+
+<header class="nav">
+  <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="26" height="26"><span>Waxframe</span></a>
+  <nav>
+    <a href="#looks">Looks</a>
+    <a href="#studio">Studio</a>
+    <a href="https://github.com/1jacobl/waxframe" target="_blank" rel="noopener">GitHub</a>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle light and dark">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+    </button>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-main">
+      <p class="label rise" style="--d:0">Audio to video · Stories, Reels, TikTok</p>
+      <h1 class="rise" style="--d:1">Post the snippet, not the mp3.</h1>
+    </div>
+    <div class="hero-side rise" style="--d:2">
+      <p>Waxframe turns a bounce into a video people actually stop on: your cover, your lyrics synced line by line, framed for a story or a feed post. It runs in your browser, so the track never leaves your computer.</p>
+      <div class="actions">
+        <label class="btn solid" for="audioInput">Drop an mp3</label>
+        <a class="btn" href="#looks">See the looks <span aria-hidden="true">↓</span></a>
+      </div>
+    </div>
+    <dl class="facts rise" style="--d:3">
+      <div><dt>Frames</dt><dd>9:16 story, 4:5 feed, 1:1, 16:9, or any ratio you type. Exports 1080p MP4.</dd></div>
+      <div><dt>Lyrics</dt><dd>Paste them, tap along while it plays. Fade, pop or karaoke. Imports and saves .lrc.</dd></div>
+      <div><dt>Private</dt><dd>No upload, no account. Reads title, artist and cover art straight from your mp3 tags.</dd></div>
+    </dl>
+  </section>
+
+  <section class="looks" id="looks">
+    <div class="looks-head">
+      <h2>Six looks, all sized for the feed.</h2>
+      <p>Each one keeps text clear of the app's buttons and captions. Tap a look to open it in the studio.</p>
+    </div>
+    <div class="reel" id="reel"></div>
+  </section>
+
+  <section id="studio" class="studio">
+    <div class="studio-head">
+      <h2>Studio</h2>
+      <p>Drop a track anywhere on this page. Cover art goes the same way.</p>
+    </div>
+
+    <div class="studio-grid">
+      <aside class="panel">
+        <label class="drop" id="drop" for="audioInput">
+          <input type="file" id="audioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" hidden>
+          <span class="drop-disc" aria-hidden="true"></span>
+          <span class="drop-text">
+            <strong id="dropTitle">Drop your mp3</strong>
+            <small id="dropSub">or click to browse · mp3, wav, m4a</small>
+          </span>
+        </label>
+
+        <div class="cover-row">
+          <div class="cover-thumb"><canvas id="coverThumb" width="120" height="120"></canvas></div>
+          <div class="cover-actions">
+            <label class="btn sm" for="coverInput">Cover art</label>
+            <input type="file" id="coverInput" accept="image/*" hidden>
+            <button class="btn sm ghost" id="coverReset" type="button">Reset</button>
+          </div>
+        </div>
+
+        <div class="fields">
+          <label class="field"><span>Title</span><input id="title" type="text" maxlength="80" value="Your Track" autocomplete="off"></label>
+          <label class="field"><span>Artist</span><input id="artist" type="text" maxlength="80" value="You" autocomplete="off"></label>
+        </div>
+
+        <div class="group">
+          <h3>Look</h3>
+          <div class="styles" id="styles" role="radiogroup" aria-label="Look"></div>
+        </div>
+
+        <div class="group">
+          <h3>Frame</h3>
+          <div class="chips" id="ratios" role="radiogroup" aria-label="Aspect ratio">
+            <button type="button" data-ratio="9:16" aria-pressed="true">9:16 Story</button>
+            <button type="button" data-ratio="4:5">4:5 Feed</button>
+            <button type="button" data-ratio="1:1">1:1</button>
+            <button type="button" data-ratio="16:9">16:9</button>
+            <button type="button" data-ratio="custom">Custom</button>
+          </div>
+          <div class="custom-ratio" id="customBox" hidden>
+            <input id="customW" type="number" min="1" max="30" step="1" value="3" aria-label="Width ratio">
+            <span>:</span>
+            <input id="customH" type="number" min="1" max="30" step="1" value="4" aria-label="Height ratio">
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>Accent</h3>
+          <div class="swatches" id="swatches">
+            <button type="button" data-c="#ff4d2e" style="--c:#ff4d2e" aria-label="Signal red"></button>
+            <button type="button" data-c="#2f5bff" style="--c:#2f5bff" aria-label="Cobalt"></button>
+            <button type="button" data-c="#c6f432" style="--c:#c6f432" aria-label="Lime"></button>
+            <button type="button" data-c="#ff6fb5" style="--c:#ff6fb5" aria-label="Pink"></button>
+            <button type="button" data-c="#f1eee8" style="--c:#f1eee8" aria-label="Bone"></button>
+            <label class="swatch-pick" title="Any color"><input type="color" id="accent" value="#ff4d2e" aria-label="Custom accent"><span>+</span></label>
+            <button type="button" class="btn sm ghost" id="matchCover">From cover</button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="stage-col" id="stageCol">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" width="1080" height="1920"></canvas>
+          <div class="guides" id="guides" aria-hidden="true"><div class="g-top"></div><div class="g-right"></div><div class="g-bot"></div></div>
+          <div class="demo-badge" id="demoBadge">Demo · drop an mp3 to make it yours</div>
+        </div>
+
+        <div class="transport">
+          <button class="play" id="playBtn" type="button" aria-label="Play">
+            <svg class="i-play" viewBox="0 0 24 24" width="20" height="20"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>
+            <svg class="i-pause" viewBox="0 0 24 24" width="20" height="20"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/></svg>
+          </button>
+          <div class="times"><span id="timeNow">0:00</span> / <span id="timeDur">0:15</span></div>
+          <div class="t-spacer"></div>
+          <button class="toggle" id="loopBtn" type="button" aria-pressed="true">Loop</button>
+          <button class="toggle" id="guidesBtn" type="button" aria-pressed="true">Safe zones</button>
+        </div>
+
+        <div class="trim">
+          <div class="trim-head"><span>Snippet</span><small id="trimHint">Drag the handles to pick the part that hits</small></div>
+          <canvas id="trim" aria-label="Snippet range"></canvas>
+          <div class="trim-row">
+            <label>Start <input id="startIn" type="text" value="0:00.00" inputmode="decimal"></label>
+            <label>End <input id="endIn" type="text" value="0:15.00" inputmode="decimal"></label>
+            <span class="len" id="lenOut">15.0s</span>
+            <div class="quick">
+              <button type="button" data-len="15">15s</button>
+              <button type="button" data-len="30">30s</button>
+              <button type="button" data-len="60">60s</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="export-row">
+          <button class="btn solid big" id="exportBtn" type="button">Export video</button>
+          <label class="check"><input type="checkbox" id="muteExport" checked> Mute speakers while exporting</label>
+          <p class="fine" id="exportNote">Records in real time at 30fps.</p>
+        </div>
+      </div>
+
+      <aside class="panel lyrics">
+        <div class="lyrics-head">
+          <h3>Lyrics</h3>
+          <div class="seg" id="lyricStyle" role="radiogroup" aria-label="Lyric animation">
+            <button type="button" data-ls="fade" aria-pressed="true">Fade</button>
+            <button type="button" data-ls="pop">Pop</button>
+            <button type="button" data-ls="karaoke">Karaoke</button>
+          </div>
+        </div>
+        <textarea id="lyricsText" rows="7" spellcheck="false" placeholder="Paste your lyrics, one line per row"></textarea>
+        <div class="lyric-actions">
+          <button class="btn sm solid" id="tapBtn" type="button">Tap to sync</button>
+          <label class="btn sm ghost" for="lrcInput">Import .lrc</label>
+          <input type="file" id="lrcInput" accept=".lrc,.txt,text/plain" hidden>
+          <button class="btn sm ghost" id="exportLrc" type="button">Save .lrc</button>
+          <button class="btn sm ghost" id="clearTimes" type="button">Clear times</button>
+        </div>
+
+        <div class="sync" id="syncPanel" hidden>
+          <p class="sync-label">Tap the moment each line starts</p>
+          <p class="sync-now" id="syncNow"></p>
+          <p class="sync-next" id="syncNext"></p>
+          <button class="tap-hit" id="tapHit" type="button">Tap<small>or space</small></button>
+          <div class="sync-ctrl">
+            <button class="btn sm ghost" id="syncUndo" type="button">Undo</button>
+            <button class="btn sm ghost" id="syncStop" type="button">Stop</button>
+          </div>
+        </div>
+
+        <div class="rows" id="lyricRows"></div>
+        <label class="check"><input type="checkbox" id="showProgress" checked> Show progress bar</label>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="foot-name">Waxframe</p>
+  <div class="foot-row">
+    <p>Made for sharing personal projects. Your files stay on your machine.</p>
+    <a href="https://github.com/1jacobl/waxframe" target="_blank" rel="noopener">Source on GitHub ↗</a>
+  </div>
+</footer>
+
+<div class="modal" id="exportModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+    <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="ring-bg"/><circle cx="60" cy="60" r="52" class="ring-fg" id="exportRing"/></svg><span id="exportPct">0%</span></div>
+    <h3 id="exportTitle">Recording your video</h3>
+    <p class="fine" id="exportMsg">Keep this tab open and visible. It records in real time.</p>
+    <div class="modal-actions">
+      <button class="btn sm ghost" id="exportCancel" type="button">Cancel</button>
+      <a class="btn sm solid" id="downloadLink" hidden>Download again</a>
+      <button class="btn sm ghost" id="exportClose" type="button" hidden>Done</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
