@@ -68,10 +68,7 @@ function blurBg(S, W, H) {
   const c = cacheFor(S, W, H); if (c.blur) return c.blur;
   const out = mk(W, H), o = out.getContext('2d');
   const q = mk(Math.max(8, W / 6), Math.max(8, H / 6)), qc = q.getContext('2d');
-  if ('filter' in qc) {
-    qc.filter = `blur(${Math.max(2, q.width / 18)}px) saturate(1.35)`;
-    drawCover(qc, S.cover, -q.width * 0.15, -q.height * 0.15, q.width * 1.3, q.height * 1.3);
-  } else {
+  {
     const t = mk(18, 18 * H / W); drawCover(t.getContext('2d'), S.cover, 0, 0, t.width, t.height);
     qc.imageSmoothingQuality = 'high'; qc.drawImage(t, 0, 0, q.width, q.height);
   }
@@ -331,55 +328,86 @@ function line(S, x, y, w, ink, track) {
 }
 function squareCrop(img) { const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, s = Math.min(iw, ih); return { sx: (iw - s) / 2, sy: (ih - s) / 2, s }; }
 
-/* ---- Apple Music materials: living background, liquid glass, artwork ---- */
+/* ---- Apple Music materials, filter-free so Safari, iOS and Chrome render the same ---- */
+/* Three-pass box blur on a small canvas (approximates a gaussian). */
+function boxBlur(canvas, r) {
+  const w = canvas.width, h = canvas.height, x = canvas.getContext('2d'); const img = x.getImageData(0, 0, w, h), d = img.data;
+  const tmp = new Float32Array(d.length);
+  for (let pass = 0; pass < 3; pass++) {
+    for (let y = 0; y < h; y++) for (let c = 0; c < 4; c++) {
+      let acc = 0, n = 0;
+      for (let i = -r; i <= r; i++) { const xi = clamp(i, 0, w - 1); acc += d[(y * w + xi) * 4 + c]; n++; }
+      for (let xx = 0; xx < w; xx++) {
+        tmp[(y * w + xx) * 4 + c] = acc / n;
+        const add = clamp(xx + r + 1, 0, w - 1), sub = clamp(xx - r, 0, w - 1);
+        acc += d[(y * w + add) * 4 + c] - d[(y * w + sub) * 4 + c];
+      }
+    }
+    for (let xx = 0; xx < w; xx++) for (let c = 0; c < 4; c++) {
+      let acc = 0, n = 0;
+      for (let i = -r; i <= r; i++) { const yi = clamp(i, 0, h - 1); acc += tmp[(yi * w + xx) * 4 + c]; n++; }
+      for (let y = 0; y < h; y++) {
+        d[(y * w + xx) * 4 + c] = acc / n;
+        const add = clamp(y + r + 1, 0, h - 1), sub = clamp(y - r, 0, h - 1);
+        acc += tmp[(add * w + xx) * 4 + c] - tmp[(sub * w + xx) * 4 + c];
+      }
+    }
+  }
+  x.putImageData(img, 0, 0); return canvas;
+}
+/* Smooth upscale in two steps so bilinear filtering never shows its diamond pattern. */
+function softUp(src, mid, W, H, ctx) {
+  const m = mid.getContext('2d'); m.imageSmoothingEnabled = true; m.imageSmoothingQuality = 'high';
+  m.clearRect(0, 0, mid.width, mid.height); m.drawImage(src, 0, 0, mid.width, mid.height);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(mid, 0, 0, W, H);
+}
+/* Blur the cover once per cover; frames only move the pre-blurred layers (no per-frame pixel readback). */
 const LIVE_SRC = new WeakMap();
 function liveSrc(cover) {
   let c = LIVE_SRC.get(cover); if (c) return c;
-  c = mk(32, 32); const x = c.getContext('2d'); if ('filter' in x) x.filter = 'saturate(1.5)'; drawCover(x, cover, 0, 0, 32, 32);
-  LIVE_SRC.set(cover, c); return c;
+  const base = mk(40, 40); drawCover(base.getContext('2d'), cover, 0, 0, 40, 40); boxBlur(base, 5);
+  const blob = mk(48, 48); const bx = blob.getContext('2d'); drawCover(bx, cover, 12, 12, 24, 24); boxBlur(blob, 6);
+  c = { base, blob }; LIVE_SRC.set(cover, c); return c;
 }
-/* The cover, blurred to colour fields that drift slowly. Rendered small, upscaled smooth. */
-function livingBg(S, dark = 0.26) {
+/* The cover, blurred into deep colour fields that drift very slowly, like Apple Music. */
+function livingBg(S, dark = 0.34) {
   const { ctx, W, H } = S; const src = liveSrc(S.cover); const cache = cacheFor(S, W, H);
-  if (!cache.lv) { const aw = 40, ah = Math.max(10, Math.round(40 * H / W)); cache.lv = mk(aw, ah); cache.lv2 = mk(aw * 5, ah * 5); }
-  const a = cache.lv, x = a.getContext('2d'), aw = a.width, ah = a.height, t = S.t;
-  x.globalAlpha = 1; x.drawImage(src, -aw * 0.2, -ah * 0.2, aw * 1.4, ah * 1.4);
-  for (let i = 0; i < 4; i++) {
-    const ang = t * 0.045 * (i % 2 ? 1 : -1) + i * 1.7; const sc = (1.3 + 0.25 * Math.sin(t * 0.04 + i * 2)) * Math.max(aw, ah);
-    x.save(); x.translate(aw / 2 + Math.cos(ang) * aw * 0.32, ah / 2 + Math.sin(ang * 1.2) * ah * 0.28); x.rotate(ang * 0.8);
-    x.globalAlpha = 0.5; x.drawImage(src, -sc / 2, -sc / 2, sc, sc); x.restore();
+  if (!cache.lv) { const aw = 48, ah = Math.max(16, Math.round(48 * H / W)); cache.lv = mk(aw, ah); cache.lv2 = mk(aw * 5, ah * 5); }
+  const a = cache.lv, x = a.getContext('2d'), aw = a.width, ah = a.height, t = S.t; x.imageSmoothingQuality = 'high';
+  x.globalAlpha = 1; x.drawImage(src.base, -aw * 0.3, -ah * 0.1, aw * 1.6, ah * 1.2);
+  for (let i = 0; i < 3; i++) {
+    const ang = t * 0.035 * (i % 2 ? 1 : -1) + i * 2.1; const sc = 2.2 * Math.max(aw, ah);
+    x.save(); x.translate(aw / 2 + Math.cos(ang) * aw * 0.3, ah / 2 + Math.sin(ang * 1.2) * ah * 0.26); x.rotate(ang * 0.7);
+    x.globalAlpha = 0.5; x.drawImage(src.blob, -sc / 2, -sc / 2, sc, sc); x.restore();
   }
   x.globalAlpha = 1;
-  const b = cache.lv2, y = b.getContext('2d'); y.imageSmoothingQuality = 'high';
-  if ('filter' in y) y.filter = 'blur(9px) saturate(1.35)';
-  y.drawImage(a, -14, -14, b.width + 28, b.height + 28); if ('filter' in y) y.filter = 'none';
-  ctx.imageSmoothingQuality = 'high'; ctx.drawImage(b, 0, 0, W, H);
-  ctx.fillStyle = `rgba(0,0,0,${dark - 0.07 * (S.kick || 0)})`; ctx.fillRect(0, 0, W, H);
-  grain(S, .035);
+  softUp(a, cache.lv2, W, H, ctx);
+  ctx.fillStyle = `rgba(8,8,10,${dark})`; ctx.fillRect(0, 0, W, H);
+  grain(S, .03);
 }
-/* Liquid glass: magnified, blurred, brightened copy of what is under it, a specular sheen and a lit rim. */
+/* Liquid glass: a magnified, softened copy of what is beneath, a sheen and a lit rim. Blur by down-and-up sampling. */
+const GLASS_TMP = mk(64, 64);
 function glass(S, x, y, w, h, r, o = {}) {
-  const { ctx, u } = S; const cvs = ctx.canvas; const sx = cvs.width / S.W;
-  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 34 * u; ctx.shadowOffsetY = 12 * u;
+  const { ctx, u } = S; const cvs = ctx.canvas; const k = cvs.width / S.W;
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30 * u; ctx.shadowOffsetY = 10 * u;
   rr(ctx, x, y, w, h, r); ctx.fillStyle = 'rgba(0,0,0,.001)'; ctx.fill(); ctx.restore();
-  ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip();
-  const m = o.mag || 1.1, pad = 24 * u, cx = x + w / 2, cy = y + h / 2;
-  const rx = Math.max(0, x - pad), ry = Math.max(0, y - pad), rw = Math.min(S.W - rx, w + pad * 2), rh = Math.min(S.H - ry, h + pad * 2);
-  if ('filter' in ctx) ctx.filter = `blur(${(o.blur || 14) * u}px) saturate(1.15) brightness(1.18)`;
-  ctx.drawImage(cvs, rx * sx, ry * sx, rw * sx, rh * sx, cx - (cx - rx) * m, cy - (cy - ry) * m, rw * m, rh * m);
-  if ('filter' in ctx) ctx.filter = 'none';
+  const m = o.mag || 1.1, cx = x + w / 2, cy = y + h / 2; const sw = Math.max(4, Math.round(w / 12)), sh = Math.max(4, Math.round(h / 12));
+  GLASS_TMP.width = sw; GLASS_TMP.height = sh; const g2 = GLASS_TMP.getContext('2d'); g2.imageSmoothingQuality = 'high';
+  const bw = Math.min(S.W, w / m), bh = Math.min(S.H, h / m); const sx0 = clamp(cx - bw / 2, 0, S.W - bw), sy0 = clamp(cy - bh / 2, 0, S.H - bh);
+  g2.drawImage(cvs, sx0 * k, sy0 * k, bw * k, bh * k, 0, 0, sw, sh);
+  ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip(); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(GLASS_TMP, x, y, w, h);
   ctx.fillStyle = `rgba(255,255,255,${o.tint ?? 0.16})`; ctx.fillRect(x, y, w, h);
   const g = ctx.createLinearGradient(0, y, 0, y + h);
-  g.addColorStop(0, 'rgba(255,255,255,.26)'); g.addColorStop(0.42, 'rgba(255,255,255,.03)'); g.addColorStop(1, 'rgba(255,255,255,.09)');
+  g.addColorStop(0, 'rgba(255,255,255,.24)'); g.addColorStop(0.45, 'rgba(255,255,255,.02)'); g.addColorStop(1, 'rgba(255,255,255,.08)');
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h); ctx.restore();
   ctx.save(); const rg = ctx.createLinearGradient(x, y, x + w * 0.6, y + h);
-  rg.addColorStop(0, 'rgba(255,255,255,.85)'); rg.addColorStop(0.45, 'rgba(255,255,255,.14)'); rg.addColorStop(1, 'rgba(255,255,255,.45)');
-  ctx.strokeStyle = rg; ctx.lineWidth = Math.max(1, 1.6 * u); rr(ctx, x + 0.8 * u, y + 0.8 * u, w - 1.6 * u, h - 1.6 * u, r); ctx.stroke(); ctx.restore();
+  rg.addColorStop(0, 'rgba(255,255,255,.8)'); rg.addColorStop(0.45, 'rgba(255,255,255,.12)'); rg.addColorStop(1, 'rgba(255,255,255,.4)');
+  ctx.strokeStyle = rg; ctx.lineWidth = Math.max(1, 1.5 * u); rr(ctx, x + 0.75 * u, y + 0.75 * u, w - 1.5 * u, h - 1.5 * u, r); ctx.stroke(); ctx.restore();
 }
-function artwork(S, x, y, s, r, scale = 1) {
+function artwork(S, x, y, s, r, scale = 1, alpha = 1) {
   const { ctx, u } = S; const cx = x + s / 2, cy = y + s / 2;
-  ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
-  ctx.shadowColor = 'rgba(0,0,0,.42)'; ctx.shadowBlur = 60 * u; ctx.shadowOffsetY = 26 * u;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+  ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 56 * u; ctx.shadowOffsetY = 24 * u;
   rr(ctx, x, y, s, s, r); ctx.fillStyle = '#111'; ctx.fill(); ctx.shadowColor = 'transparent';
   rr(ctx, x, y, s, s, r); ctx.clip(); const c = squareCrop(S.cover); ctx.drawImage(S.cover, c.sx, c.sy, c.s, c.s, x, y, s, s);
   ctx.restore();
@@ -390,28 +418,32 @@ function scrubber(S, x, y, w) {
   ctx.fillStyle = 'rgba(255,255,255,.24)'; rr(ctx, x, y, w, h, h / 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.88)'; rr(ctx, x, y, Math.max(h, w * S.p), h, h / 2); ctx.fill();
   ctx.save(); ctx.font = font(600, 22 * u); ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
-  if ('fontVariantNumeric' in ctx) ctx.fontVariantNumeric = 'tabular-nums';
   ctx.textAlign = 'left'; ctx.fillText(fmt(S.el), x, y + h + 14 * u); ctx.textAlign = 'right'; ctx.fillText('-' + fmt(S.dur - S.el), x + w, y + h + 14 * u); ctx.restore();
 }
 function nowMeta(S, x, y, w, ts) {
   const { ctx, u } = S; const bs = 64 * u;
   ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
-  if ('letterSpacing' in ctx) ctx.letterSpacing = (-0.01 * ts * u).toFixed(1) + 'px';
   const tw = w - bs - 24 * u; ctx.font = font(700, ts * u); ctx.fillText(ellip(ctx, S.title, tw), x, y + ts * u * 0.9);
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   ctx.font = font(500, ts * 0.74 * u); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(ellip(ctx, S.artist, tw), x, y + ts * u * 0.9 + ts * 0.98 * u);
   ctx.restore();
-  glass(S, x + w - bs, y + ts * u * 0.42 - bs / 2 + 12 * u, bs, bs, bs / 2, { blur: 10 }); dots(S, x + w - bs / 2, y + ts * u * 0.42 + 12 * u, bs * 0.9);
+  glass(S, x + w - bs, y + ts * u * 0.42 - bs / 2 + 12 * u, bs, bs, bs / 2); dots(S, x + w - bs / 2, y + ts * u * 0.42 + 12 * u, bs * 0.9);
   return y + ts * u * 0.9 + ts * 0.98 * u;
 }
 function transport(S, cx, cy, w, h) {
-  const { ctx } = S; glass(S, cx - w / 2, cy - h / 2, w, h, h / 2, { blur: 16, mag: 1.14 });
+  const { ctx } = S; glass(S, cx - w / 2, cy - h / 2, w, h, h / 2, { mag: 1.14 });
   const s = h * 0.36; ctx.save(); ctx.fillStyle = '#fff';
   if (S.playing) { rr(ctx, cx - s * 0.42, cy - s * 0.5, s * 0.3, s, s * 0.06); ctx.fill(); rr(ctx, cx + s * 0.12, cy - s * 0.5, s * 0.3, s, s * 0.06); ctx.fill(); }
   else tri(ctx, cx - s * 0.36, cy, s * 1.05);
   skipIcon(ctx, cx - w * 0.3, cy, s * 0.82, -1); skipIcon(ctx, cx + w * 0.3, cy, s * 0.82, 1); ctx.restore();
 }
-/* Apple Music lyrics: active line fills word by word, the rest dims and blurs with distance, the list glides. */
+/* Soft text without ctx.filter: a few low-alpha copies around a small circle. */
+function softText(ctx, text, x, y, r, alpha) {
+  if (r < 0.6) { ctx.globalAlpha = alpha; ctx.fillText(text, x, y); return; }
+  const n = 8; ctx.globalAlpha = alpha * 0.26;
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; ctx.fillText(text, x + Math.cos(a) * r, y + Math.sin(a) * r); }
+  ctx.globalAlpha = alpha * 0.22; ctx.fillText(text, x, y);
+}
+/* Apple Music lyrics: active line fills word by word, the rest dims and softens with distance, the list glides. */
 function lyricList(S, A) {
   const { ctx, u } = S; const L = S.lyrics; const size = A.size; const lh = size * 1.1, gap = size * 0.55;
   ctx.save(); ctx.font = font(800, size); if ('letterSpacing' in ctx) ctx.letterSpacing = (-0.015 * size).toFixed(1) + 'px';
@@ -426,39 +458,36 @@ function lyricList(S, A) {
   const prevTop = idx > 0 ? tops[idx - 1] : 0, curTop = idx >= 0 ? tops[idx] : 0;
   const off = prevTop + (curTop - prevTop) * pr;
   const end = idx >= 0 ? lineEnd(L[idx], L[idx + 1]) : 0; const live = idx >= 0 && S.t <= end + 0.3;
-  const canBlur = 'filter' in ctx;
   ctx.beginPath(); ctx.rect(A.x - 40 * u, A.clipTop, A.w + 80 * u, A.clipBottom - A.clipTop); ctx.clip();
-  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
   for (let i = Math.max(0, idx - 2); i < L.length; i++) {
     const y0 = A.y + tops[i] - off; if (y0 > A.clipBottom) break; if (y0 + rows[i].length * lh < A.clipTop) continue;
     const d = idx < 0 ? i + 1 : i - idx; let alpha, blur;
-    if (d === 0 && live) { alpha = 0.32 + 0.68 * pr; blur = (1 - pr) * 3; }
-    else if (d === -1) { alpha = 1 - 0.7 * pr; blur = pr * 3; }
-    else { alpha = d < 0 ? 0.24 : Math.max(0.14, 0.34 - d * 0.04); blur = Math.min(8, Math.abs(d) * 2.4); }
-    if (canBlur) ctx.filter = blur > 0.3 ? `blur(${(blur * u).toFixed(1)}px)` : 'none';
+    if (d === 0 && live) { alpha = 0.32 + 0.68 * pr; blur = (1 - pr) * 2.5; }
+    else if (d === -1) { alpha = 1 - 0.72 * pr; blur = pr * 2.5; }
+    else { alpha = d < 0 ? 0.24 : Math.max(0.14, 0.34 - d * 0.04); blur = Math.min(6, Math.abs(d) * 2); }
     const fillMode = d === 0 && live; const sung = fillMode ? clamp((S.t - L[i].t) / Math.max(0.5, (end - L[i].t) * 0.9), 0, 1) : 0;
     const widths = rows[i].map(r => ctx.measureText(r.join(' ')).width); const total = widths.reduce((a, b) => a + b, 0); let filled = sung * total;
     rows[i].forEach((ws, ri) => {
       const ty = y0 + size * 0.85 + ri * lh; const text = ws.join(' ');
       const edge = clamp((ty - size * 0.85 - A.clipTop) / (size * 1.1), 0, 1) * clamp((A.clipBottom - ty) / (size * 1.4), 0, 1);
       if (edge <= 0.01) { if (fillMode) filled -= Math.min(widths[ri], filled); return; }
-      ctx.globalAlpha = (fillMode ? 1 : alpha) * edge; ctx.fillStyle = fillMode ? 'rgba(255,255,255,.34)' : '#fff'; ctx.fillText(text, A.x, ty);
+      if (fillMode) { ctx.globalAlpha = 0.34 * edge; ctx.fillText(text, A.x, ty); }
+      else softText(ctx, text, A.x, ty, blur * u, alpha * edge);
       if (fillMode && filled > 0) {
         const fw = Math.min(widths[ri], filled); filled -= fw;
         ctx.save(); ctx.globalAlpha = edge; ctx.beginPath(); ctx.rect(A.x - 4 * u, ty - size, fw + 4 * u, size * 1.35); ctx.clip();
-        ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 18 * u; ctx.fillStyle = '#fff'; ctx.fillText(text, A.x, ty); ctx.restore();
+        ctx.shadowColor = 'rgba(255,255,255,.4)'; ctx.shadowBlur = 16 * u; ctx.fillText(text, A.x, ty); ctx.restore();
       }
     });
   }
-  if (canBlur) ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
+  ctx.globalAlpha = 1; ctx.restore();
 }
-/* Placeholder art in the Apple Music spirit: soft colour fields, no text. */
+/* Placeholder art: crisp geometric shapes, like a real sleeve, never a blurry gradient. */
 function makeArt(c1, c2, c3) {
   const c = mk(800, 800), x = c.getContext('2d'); x.fillStyle = c1; x.fillRect(0, 0, 800, 800);
-  const blob = (col, px, py, r) => { x.fillStyle = col; x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill(); };
-  if ('filter' in x) x.filter = 'blur(90px)';
-  blob(c2, 200, 230, 330); blob(c3, 640, 620, 360); blob(c2, 700, 120, 160);
-  if ('filter' in x) x.filter = 'none';
+  const disc = (col, px, py, r) => { x.fillStyle = col; x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill(); };
+  disc(c2, 180, 250, 330); disc(c3, 620, 660, 400); disc(c2, 690, 140, 150);
   return c;
 }
 
@@ -466,17 +495,18 @@ const STYLES = {
   nowplaying: {
     name: 'Now Playing', blurb: 'the player screen',
     draw(S) {
-      const { W, H, u } = S; livingBg(S, 0.2); const B = frameBox(S); const k = S.kick || 0;
-      const sc = S.playing ? 1 + 0.012 * k : 0.86;
+      const { ctx, W, H, u } = S; livingBg(S, 0.3); const B = frameBox(S);
+      const rv = S.reveal == null ? 1 : ease(S.reveal); const sc = (S.playing ? 1 : 0.88) * (0.82 + 0.18 * rv);
       if (!isLand(S)) {
         const tall = B.tall; const aw = tall ? W * 0.74 : Math.min(W * 0.6, H * 0.44);
         const ax = tall ? B.m + (W - B.m - B.right - aw) / 2 : (W - aw) / 2; const ay = tall ? H * 0.13 : H * 0.08;
-        artwork(S, ax, ay, aw, aw * 0.035, sc);
+        artwork(S, ax, ay, aw, aw * 0.035, sc, rv);
+        ctx.save(); ctx.globalAlpha = clamp(rv * 1.6 - 0.6, 0, 1);
         let y = nowMeta(S, ax, ay + aw + (tall ? 64 : 44) * u, aw, tall ? 52 : 44) + 44 * u;
         scrubber(S, ax, y, aw); y += 104 * u;
-        transport(S, ax + aw / 2, y + 60 * u, aw * 0.8, 124 * u);
+        transport(S, ax + aw / 2, y + 60 * u, aw * 0.8, 124 * u); ctx.restore();
       } else {
-        const aw = H * 0.7, ax = W * 0.08, ay = (H - aw) / 2; artwork(S, ax, ay, aw, aw * 0.035, sc);
+        const aw = H * 0.7, ax = W * 0.08, ay = (H - aw) / 2; artwork(S, ax, ay, aw, aw * 0.035, sc, rv);
         const x = ax + aw + W * 0.07, w = W - x - W * 0.08;
         let y = nowMeta(S, x, H * 0.24, w, 52) + 56 * u; scrubber(S, x, y, w); y += 110 * u;
         transport(S, x + w / 2, y + 60 * u, Math.min(w * 0.8, 560 * u), 124 * u);
@@ -487,7 +517,7 @@ const STYLES = {
   lyrics: {
     name: 'Lyrics', blurb: 'the lyrics view',
     draw(S) {
-      const { ctx, W, H, u } = S; livingBg(S, 0.34); const B = frameBox(S), land = isLand(S);
+      const { ctx, W, H, u } = S; livingBg(S, 0.42); const B = frameBox(S), land = isLand(S);
       const w = land ? W * 0.6 : W - B.m - B.right; const x = land ? W * 0.32 : B.m;
       const hs = 96 * u; artwork(S, B.m, B.top, hs, 14 * u);
       ctx.save(); ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff'; const tw = land ? W * 0.32 - B.m - hs - 60 * u : w - hs - 110 * u;
@@ -507,7 +537,7 @@ const STYLES = {
       const { ctx, W, H, u } = S; flat(S, '#000'); const k = S.kick || 0;
       const z = 1.08 + 0.06 * k + 0.02 * Math.sin(S.t * 0.4);
       ctx.save(); ctx.translate(W / 2, H / 2); drawCover(ctx, S.cover, -W * z / 2, -H * z / 2, W * z, H * z); ctx.restore();
-      ctx.fillStyle = `rgba(10,9,12,${(S.plain ? 0.3 : 0.64) - 0.18 * k})`; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = `rgba(10,9,12,${(S.plain ? 0.5 : 0.64) - 0.18 * k})`; ctx.fillRect(0, 0, W, H);
       const B = frameBox(S), w = W - B.m - B.right;
       const hb = head(S, B.m, B.top, w, BONE, BONE_SUB);
       bigWords(S, { x: B.m, y: hb + 50 * u, w, h: B.bottom - hb - 100 * u }, BONE, 'rgba(241,238,232,.32)');
@@ -595,10 +625,7 @@ function render(ctx, W, H, D) {
 /* =========================================================
    COVER + COLOR
    ========================================================= */
-function makeDefaultCover(accent) {
-  const a = hexToRgb(accent); const hot = rgbToHex(mix(a, { r: 255, g: 255, b: 255 }, 0.35)); const deep = rgbToHex(mix(a, { r: 40, g: 20, b: 90 }, 0.6));
-  return makeArt(deep, accent, hot);
-}
+function makeDefaultCover() { return makeArt('#2a1446', '#ff4d6d', '#ffb86b'); }
 function dominant(img) {
   const t = mk(24, 24), x = t.getContext('2d'); x.drawImage(img, 0, 0, 24, 24);
   const d = x.getImageData(0, 0, 24, 24).data; let R = 0, G = 0, B = 0, Wt = 0;
@@ -1051,21 +1078,49 @@ const demoIO = new IntersectionObserver(es => es.forEach(e => { const d = demos.
 function addDemo(c, d, off) { const o = { ...d, c, ctx: c.getContext('2d'), cover: null, off, visible: false }; demos.push(o); demoIO.observe(c); return o; }
 const reelEl = $('#reel');
 REEL.forEach((d, i) => {
-  const b = document.createElement('button'); b.type = 'button'; b.className = 'look tilt'; b.style.setProperty('--i', i);
-  b.innerHTML = `<span class="look-frame"><canvas width="360" height="640"></canvas><span class="glare"></span></span><span class="look-name"><b>${STYLES[d.style].name}</b><span>${STYLES[d.style].blurb}</span></span>`;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'look'; b.style.setProperty('--i', i);
+  b.innerHTML = `<span class="look-frame"><canvas width="360" height="640"></canvas></span><span class="look-name"><b>${STYLES[d.style].name}</b><span>${STYLES[d.style].blurb}</span></span>`;
   b.setAttribute('aria-label', `Open the ${STYLES[d.style].name} look in the studio`);
   b.addEventListener('click', () => { setStyle(d.style); $('#studio').scrollIntoView({ behavior: 'smooth' }); });
   reelEl.appendChild(b); addDemo($('canvas', b), d, i * 2.3);
 });
-$$('.hero-phones canvas').forEach((c, i) => addDemo(c, REEL.find(r => r.style === c.dataset.demo), [1.2, 0, 5.1][i] || 0));
-function buildHeroCovers() { demos.forEach(d => { d.cover = makeArt(...ARTS[d.art]); d.color = dominant(d.cover); }); }
+function buildHeroCovers() { demos.forEach(d => { d.cover = makeArt(...ARTS[d.art]); d.color = dominant(d.cover); }); storyCover = makeArt(...ARTS.dusk); }
 new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) $('.looks').classList.add('in'); }), { threshold: 0.15 }).observe($('.looks'));
 
-/* ambient page light: the current cover, living, behind everything */
-const amb = $('#ambient'), actxA = amb.getContext('2d');
-function drawAmbient(now) {
-  const cover = state.cover; if (!cover) return;
-  livingBg({ ctx: actxA, W: amb.width, H: amb.height, u: 0.05, cover, t: now / 1000, kick: hasAudio && !audio.paused ? KICK : 0 }, 0);
+/* =========================================================
+   HOW IT WORKS: each step animates the action it describes
+   ========================================================= */
+const storyC = $('#storyCanvas'), storyX = storyC.getContext('2d'), device = $('#device'), tapEl = $('.tap');
+let storyCover = null, storyStep = -1, storyT0 = 0, storyVisible = false, ratioIdx = 0, lastLine = -1;
+const STORY_LYRICS = [
+  { t: 0.6, text: 'I been up all night' }, { t: 2.1, text: 'with the windows down' },
+  { t: 3.6, text: 'send it to the group chat' }, { t: 5.1, text: 'they already know' }
+];
+const RATIOS = [['9:16', '9:16 Story', 540, 960], ['4:5', '4:5 Feed', 540, 675], ['1:1', '1:1 Square', 540, 540]];
+function setRatio(i) {
+  ratioIdx = i; const r = RATIOS[i]; device.dataset.ratio = r[0]; $('#ratioTag').textContent = r[1];
+  if (storyC.width !== r[2] || storyC.height !== r[3]) { storyC.width = r[2]; storyC.height = r[3]; }
+}
+function setStep(n) {
+  if (n === storyStep) return; storyStep = n; storyT0 = performance.now(); lastLine = -1;
+  device.dataset.step = n; device.classList.remove('run'); void device.offsetWidth; device.classList.add('run');
+  $$('.step').forEach(el => el.classList.toggle('active', +el.dataset.step === n));
+  if (n !== 1) setRatio(0);
+}
+const stepIO = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) setStep(+e.target.dataset.step); }), { rootMargin: innerWidth < 900 ? '-64% 0px -30% 0px' : '-45% 0px -45% 0px' });
+$$('.step').forEach(el => stepIO.observe(el));
+new IntersectionObserver(es => es.forEach(e => { storyVisible = e.isIntersecting; if (e.isIntersecting && storyStep < 0) setStep(0); })).observe($('.story'));
+function drawStory(now) {
+  if (!storyCover || storyStep < 0) return; const t = (now - storyT0) / 1000; let style = 'nowplaying', tt = t, lyr = [], end = 30, reveal = 1;
+  if (storyStep === 0) { reveal = clamp((t - 0.85) / 0.9, 0, 1); tt = Math.max(0, t - 1.6); }
+  if (storyStep === 1) { const i = Math.floor(t / 2.4) % 3; if (i !== ratioIdx) setRatio(i); tt = 4 + t; }
+  if (storyStep === 2) {
+    style = 'lyrics'; lyr = STORY_LYRICS; end = 7; tt = t % 7;
+    let li = -1; STORY_LYRICS.forEach((l, i) => { if (l.t <= tt) li = i; });
+    if (li !== lastLine) { lastLine = li; if (li >= 0) { tapEl.classList.remove('go'); void tapEl.offsetWidth; tapEl.classList.add('go'); } }
+  }
+  if (storyStep === 3) tt = 8 + t;
+  render(storyX, storyC.width, storyC.height, { style, cover: storyCover, title: 'Late Night Loop', artist: 'you', accent: '#fa2d48', color: { r: 255, g: 77, b: 109 }, lyricStyle: 'fade', showProgress: true, lyrics: lyr, start: 0, end, t: tt, levels: DLV, bass: 0, kick: 0, wave: DWAVE, playing: true, peaks: null, plain: true, reveal });
 }
 
 /* =========================================================
@@ -1123,31 +1178,19 @@ function frame(now) {
   if (!exporting && frameN % 2 === 0 && demos.length && demos[0].cover) {
     demos.forEach(d => {
       if (!d.visible) return; const t = ((now / 1000) + d.off) % DEMO_DUR;
-      render(d.ctx, d.c.width, d.c.height, { style: d.style, cover: d.cover, title: d.title, artist: 'you', accent: d.accent, color: d.color, lyricStyle: d.style === 'type' ? 'pop' : 'fade', showProgress: true, lyrics: DEMO_HERO_LYRICS, start: 0, end: DEMO_DUR, plain: true, t, levels: DLV, bass: DBASS, kick: DKICK, wave: DWAVE, playing: true, peaks: null });
+      render(d.ctx, d.c.width, d.c.height, { style: d.style, cover: d.cover, title: d.title, artist: 'you', accent: d.accent, color: d.color, lyricStyle: d.style === 'type' ? 'pop' : 'fade', showProgress: true, lyrics: DEMO_HERO_LYRICS, start: 0, end: DEMO_DUR, plain: true, t, levels: DLV, bass: 0, kick: 0, wave: DWAVE, playing: true, peaks: null });
     });
   }
-  if (!exporting && frameN % 3 === 0) drawAmbient(now);
+  if (!exporting && storyVisible) drawStory(now);
 }
 
 /* reveal on scroll */
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
 $$('.reveal').forEach(el => io.observe(el));
 
-/* nav, parallax, tilt */
-const nav = $('.nav'), phones = $$('.hero-phones .phone');
-const calm = matchMedia('(prefers-reduced-motion: reduce)');
-function onScroll() {
-  const y = window.scrollY; nav.classList.toggle('scrolled', y > 8);
-  if (!calm.matches) phones.forEach((p, i) => p.style.setProperty('--py', (y * [0.1, -0.05, 0.14][i]).toFixed(1) + 'px'));
-}
-window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
-document.addEventListener('pointermove', e => {
-  const t = e.target.closest && e.target.closest('.tilt'); if (!t || e.pointerType === 'touch' || calm.matches) return;
-  const r = t.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-  t.style.setProperty('--rx', ((0.5 - py) * 8).toFixed(2) + 'deg'); t.style.setProperty('--ry', ((px - 0.5) * 10).toFixed(2) + 'deg');
-  t.style.setProperty('--gx', (px * 100).toFixed(1) + '%'); t.style.setProperty('--gy', (py * 100).toFixed(1) + '%');
-}, { passive: true });
-document.addEventListener('pointerout', e => { const t = e.target.closest && e.target.closest('.tilt'); if (t && !t.contains(e.relatedTarget)) { t.style.setProperty('--rx', '0deg'); t.style.setProperty('--ry', '0deg'); } });
+/* nav */
+const nav = $('.nav');
+window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 8), { passive: true });
 
 /* boot */
 new ResizeObserver(fitStage).observe($('#stageCol'));

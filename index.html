@@ -9,16 +9,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
-<div class="ambient-wrap" aria-hidden="true"><canvas id="ambient" width="64" height="40"></canvas></div>
-<div class="ambient-dim" aria-hidden="true"></div>
 <div class="drop-overlay" id="dropOverlay" aria-hidden="true"><p>Drop it</p></div>
 
 <header class="nav">
   <a class="brand" href="#top"><img src="assets/logo.svg?v=4" alt="" width="26" height="26"><span>Waxframe</span></a>
   <nav>
+    <a href="#how">How it works</a>
     <a href="#looks">Looks</a>
     <a href="#studio">Studio</a>
     <a href="https://github.com/1jacobl/waxframe" target="_blank" rel="noopener">GitHub</a>
@@ -28,30 +27,56 @@
 
 <main id="top">
   <section class="hero">
-    <p class="pill in-1">Audio to video for Stories, Reels and TikTok</p>
-    <h1 class="in-2">Your snippet,<br>now playing.</h1>
-    <p class="lede in-3">Drop a track and Waxframe turns it into the screen you see in Apple Music: your cover alive behind glass, lyrics filling in word by word, every frame moving with the beat. Then export it for the feed.</p>
-    <div class="actions in-4">
+    <h1 class="in-1">Your snippet,<br>now playing.</h1>
+    <p class="lede in-2">Turn a bounce into the screen people know from Apple Music: your cover, lyrics that fill in as they're sung, sized for a story or a feed post.</p>
+    <div class="actions in-3">
       <label class="btn solid" for="audioInput">Drop an mp3</label>
-      <a class="btn glass-btn" href="#looks">See the looks</a>
+      <a class="btn quiet" href="#how">See how it works</a>
     </div>
-    <div class="hero-phones">
-      <div class="phone side left"><canvas width="540" height="960" data-demo="lyrics"></canvas></div>
-      <div class="phone main"><canvas width="540" height="960" data-demo="nowplaying"></canvas></div>
-      <div class="phone side right"><canvas width="540" height="960" data-demo="punch"></canvas></div>
+  </section>
+
+  <section class="story" id="how" aria-label="How it works">
+    <div class="story-stage">
+      <div class="device" id="device" data-ratio="9:16">
+        <canvas id="storyCanvas" width="540" height="960"></canvas>
+        <div class="file-chip" aria-hidden="true"><span class="file-icon"></span><span>late-night-loop.mp3</span></div>
+        <div class="ratio-tag" aria-hidden="true"><span id="ratioTag">9:16 Story</span></div>
+        <div class="tap" aria-hidden="true"><span></span></div>
+        <div class="export-sheet" aria-hidden="true">
+          <div class="ex-ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/><circle class="ex-fg" cx="24" cy="24" r="20"/></svg><svg class="ex-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <p class="ex-title"><span class="ex-a">Exporting</span><span class="ex-b">Saved</span></p>
+          <p class="ex-sub">MP4 · 1080 × 1920</p>
+        </div>
+      </div>
     </div>
-    <dl class="facts">
-      <div class="glass reveal" style="--d:0ms"><dt>Any frame</dt><dd>9:16 story, 4:5 feed, 1:1, 16:9 or your own ratio, exported as a 1080p MP4.</dd></div>
-      <div class="glass reveal" style="--d:90ms"><dt>Lyrics that fill</dt><dd>Paste them and tap along while it plays. Import or save .lrc files.</dd></div>
-      <div class="glass reveal" style="--d:180ms"><dt>Moves on the beat</dt><dd>Kicks are detected live, so the art punches exactly where your drums hit.</dd></div>
-      <div class="glass reveal" style="--d:270ms"><dt>Stays private</dt><dd>No upload, no account. Title, artist and cover come from your mp3 tags.</dd></div>
-    </dl>
+    <div class="story-steps">
+      <article class="step" data-step="0">
+        <p class="step-k">Drop</p>
+        <h2>Bring the bounce.</h2>
+        <p>Drop an mp3, wav or m4a. Title, artist and cover art come straight out of the file's tags, so it already looks like your release.</p>
+      </article>
+      <article class="step" data-step="1">
+        <p class="step-k">Frame</p>
+        <h2>Fit it to the feed.</h2>
+        <p>9:16 for stories and TikTok, 4:5 for the feed, square, wide or any ratio you type. Text stays clear of the app's buttons and captions.</p>
+      </article>
+      <article class="step" data-step="2">
+        <p class="step-k">Sync</p>
+        <h2>Tap along to the lyrics.</h2>
+        <p>Paste your lines, press play, tap as each one starts. Every word fills in as it's sung, the way Apple Music does it.</p>
+      </article>
+      <article class="step" data-step="3">
+        <p class="step-k">Export</p>
+        <h2>Post it.</h2>
+        <p>A 1080p MP4 with your audio, ready for Instagram or TikTok. Nothing is uploaded. It all happens in your browser.</p>
+      </article>
+    </div>
   </section>
 
   <section class="looks" id="looks">
     <div class="looks-head">
-      <h2 class="reveal">Six looks. Every one reacts.</h2>
-      <p class="reveal" style="--d:80ms">Text stays clear of the app's buttons and captions. Tap a look to open it in the studio.</p>
+      <h2 class="reveal">Pick a look.</h2>
+      <p class="reveal" style="--d:80ms">Two that feel like Apple Music, four with more attitude. Tap one to open it in the studio.</p>
     </div>
     <div class="reel" id="reel"></div>
   </section>
@@ -220,6 +245,6 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
